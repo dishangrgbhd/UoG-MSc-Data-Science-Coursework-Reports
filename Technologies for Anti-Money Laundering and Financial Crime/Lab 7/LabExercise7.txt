@@ -1,0 +1,17 @@
+Exercise-1.1:
+Address 1 : 0xB0f17Fd183A47114aB955F4C3a6fF4e49cE6A68f
+Address 2 : 0x67a2210AaB20912ea072F61a22d7f6C6B995B4cA
+
+Exercise-1.2:
+The user initiated a successful token swap executed through PancakeSwaP. The wallet 0xc6Fd786bB7416ece05e6691eE4967ad062393842 interacted with the PancakeSwap Router v2 to trade 0.164338052957493228 WBNB for 1,181,668.513145 Mattie. During the swap, the WBNB was sent from the user's wallet to the PancakeSwap liquidity pool through the router contract, and in return the liquidity pool transferred Mattie tokens back to the user's wallet. This swap took a small transaction fee of 0.00058986 BNB.
+
+Exercise-2.1:
+Yes
+
+Exercise-3.1:
+Anonymity set at deposit D5 = 2
+
+Anonymity set at withdrawal W6 = 1
+
+No there is no anonymity added to the withdrawal. It's because the level of anonymity provided at the time of withdrawal is directly related to the amount of time that the funds remain in the pool. Its like hiding within the crowd but for anonymity to be added, new deposits must enter the mixer between deposit and withdrawal timeframe. 
+Since at the time of W6, there is only one deposit left in the pool that has not been withdrawn, the withdrawal can only correspond to that one remaining deposit leaving the privacy of the remaining funds at its lowest value. This makes W6 as the last person, making it easier to link the withdrawal to the remaining original deposit.

@@ -1,0 +1,18 @@
+CREATE CONSTRAINT personIdConstraint FOR (person:Person) REQUIRE person.personId IS UNIQUE
+
+CREATE CONSTRAINT loanIdConstraint FOR (loan:Loan) REQUIRE loan.loanId IS UNIQUE
+
+LOAD CSV WITH HEADERS FROM "https://gist.githubusercontent.com/apogiatzis/237146155b85be73e25d775e487f4d8c/raw/7a440b1f4b7885ea425d5db0ce6aae041b8ea42a/persons2.csv" AS csvLine
+CREATE (p:Person {id: toInteger(csvLine.personId), fname: csvLine.firstName, lname: csvLine.lastName})
+
+LOAD CSV WITH HEADERS FROM
+"https://gist.githubusercontent.com/apogiatzis/93927b266820ce9696b94055e896b1f9/raw/fdfdd19194b2afc1f78b01e4ddd783826b676878/loans.csv" AS csvLine
+MERGE (bank:Bank {bname: csvLine.bank})
+CREATE (loan:Loan {id: toInteger(csvLine.loanId), amount: csvLine.amount})
+CREATE (loan)-[:FROM]->(bank)
+
+LOAD CSV WITH HEADERS FROM
+"https://gist.githubusercontent.com/apogiatzis/dbc8f04359311257cd84e216ae8fedc4/raw/19fa315206573cab427d8b13e641c403a45852c6/status.csv" AS csvLine
+MATCH (person:Person {id: toInteger(csvLine.personId)}), (loan:Loan {id:
+toInteger(csvLine.loanId)})
+CREATE (person)-[:RECEIVED {loan: csvLine.status}]->(loan)

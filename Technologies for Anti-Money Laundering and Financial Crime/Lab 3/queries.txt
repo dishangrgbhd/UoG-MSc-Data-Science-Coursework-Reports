@@ -1,0 +1,66 @@
+LOAD CSV WITH HEADERS FROM "https://gist.githubusercontent.com/apogiatzis/f7793b9707f3b15f5e811acb4f9d82bb/raw/d5e769a47955fd79ca3b00efd82d48041f883a31/persons.csv" AS csvLine
+MERGE (e:Email {address: csvLine.email})
+MERGE (t:Phone {number: csvLine.phone})
+CREATE (p:Person {obj_id: csvLine.obj_id, first_name: csvLine.first_name, last_name: csvLine.last_name, date_of_birth: date(csvLine.date_of_birth), occupation: csvLine.occupation, nationality: csvLine.nationality, phone: csvLine.phone, ni_number: csvLine.ni_number})
+CREATE (p)-[:HAS_EMAIL]->(e)
+CREATE (p)-[:HAS_PHONE]->(t)
+
+LOAD CSV WITH HEADERS FROM "https://gist.githubusercontent.com/apogiatzis/ce3572b2671730a95ff2d96e3318764d/raw/e4d29e632f1510594f499608983c475da0143e68/accounts.csv" AS csvLine
+MATCH (p:Person {obj_id: csvLine.owners})
+MERGE (b:Bank {name: csvLine.bank})
+CREATE (a:Account {obj_id: csvLine.obj_id, balance: toFloat(csvLine.balance), currency: csvLine.currency, owner: csvLine.owners, opened_at: datetime(replace(csvLine.opened_at, ' ', 'T'))})
+CREATE (p)-[:OWNS]->(a)
+CREATE (a)-[:PROVIDED_BY]->(b)
+
+LOAD CSV WITH HEADERS FROM "https://gist.githubusercontent.com/apogiatzis/e8188df98dbc8810d49f274af7e607ac/raw/c014fc9cdd1d4f024b910af4966a5e2ab5a104f9/transactions.csv" AS csvLine
+MATCH (sender:Account {obj_id: csvLine.sender})
+MATCH (recipient:Account {obj_id: csvLine.recipient})
+CREATE (t:Transaction:Transfer {obj_id: csvLine.obj_id, amount: toFloat(csvLine.amount), currency: csvLine.currency, type: csvLine.type, timestamp: datetime(replace(csvLine.timestamp, ' ','T'))})
+CREATE (sender)-[:PERFORMED]->(t)
+CREATE (t)-[:TO]->(recipient)
+
+LOAD CSV WITH HEADERS FROM "https://gist.githubusercontent.com/apogiatzis/04addd6990394aec5695d70e020d7ee3/raw/b63b71c0bcd5275e6c31ee7bc9a1944975be8fe2/deposits.csv" AS csvLine
+MATCH (sender:Person {obj_id: csvLine.sender})
+MATCH (recipient:Account {obj_id: csvLine.recipient})
+CREATE (t:Transaction:Deposit {obj_id: csvLine.obj_id, amount: toFloat(csvLine.amount), currency: csvLine.currency, type: csvLine.type, timestamp: datetime(replace(csvLine.timestamp, ' ','T'))})
+CREATE (sender)-[:PERFORMED]->(t)
+CREATE (t)-[:TO]->(recipient)
+
+MATCH (p:Person)-[:PERFORMED]-(d:Deposit)-[:TO]->(a:Account) RETURN p,a,d
+
+MATCH (p:Person)-[:PERFORMED]-(d:Deposit)-[:TO]->(a:Account) 
+RETURN d.amount, count(DISTINCT d.amount) AS freq 
+ORDER BY freq DESC
+
+MATCH (p:Person)-[:PERFORMED]-(d:Deposit)-[:TO]->(a:Account)
+WITH min(d.timestamp) AS min_date, max(d.timestamp) AS max_date
+RETURN min_date, min_date.epochMillis AS min_date_epoch, max_date, max_date.epochMillis AS max_date_epoch
+
+UNWIND range(880092632000, 1644640280000, 86400000) AS t
+MATCH (p:Person)-[:PERFORMED]-(d:Deposit)-[:TO]->(a:Account)
+WHERE d.timestamp.epochMillis >= t AND d.timestamp.epochMillis < t + 86400000
+RETURN datetime({epochMillis:t}), COUNT(*) as deposit_count 
+ORDER BY deposit_count desc
+
+MATCH (p:Person)-[:PERFORMED]-(d:Deposit)-[:TO]->(a:Account)
+WITH *,datetime("2011-08-27T06:10:32Z") as window_start
+WHERE d.timestamp.epochMillis >= window_start.epochMillis AND d.timestamp.epochMillis < window_start.epochMillis + 86400000
+RETURN p,d,a
+
+MATCH (p1:Person)-[:HAS_EMAIL|:HAS_PHONE]->(info)<-[:HAS_EMAIL|:HAS_PHONE]-(p2:Person)
+WHERE p1.obj_id<>p2.obj_id
+WITH p1, p2, count(*) as cnt
+MERGE (p1)-[:SHARED_IDENTIFIERS{count: cnt}]-(p2)
+
+MATCH (p:Person)-[:PERFORMED]-(d:Deposit)-[:TO]->(a:Account)
+MATCH (p)-[:SHARED_IDENTIFIERS]-(o:Person)
+WITH *,datetime("2011-08-27T06:10:32Z") as window_start
+WHERE d.timestamp.epochMillis >= window_start.epochMillis AND d.timestamp.epochMillis < window_start.epochMillis + 86400000
+RETURN p,d,a,o
+
+MATCH (p:Person)-[:PERFORMED]-(d:Deposit)-[:TO]->(a:Account)
+MATCH (p)-[:SHARED_IDENTIFIERS]-(o:Person)
+WITH *,datetime("2011-08-27T06:10:32Z") as window_start
+WHERE d.timestamp.epochMillis >= window_start.epochMillis AND
+d.timestamp.epochMillis < window_start.epochMillis + 86400000
+RETURN d.obj_id

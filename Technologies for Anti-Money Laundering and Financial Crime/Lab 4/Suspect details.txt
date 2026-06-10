@@ -1,0 +1,25 @@
+Name- Malcolm Brown
+obj_id- "580fc4ad-8b88-4f4b-9ef1-19ea974eafa3"
+
+Query:
+MATCH p=(s:ShellCompany {obj_id:"9e5ae7d7-2482-40be-9e05-4cd55c782060"})-[:OWNS]-(a:Account)-[*]->(a)
+RETURN nodes(p)
+
+MATCH p=(a:Account)-[:TO|PERFORMED*..6]->(a)
+RETURN p
+ORDER BY length(p) DESC
+LIMIT 1
+
+WITH ["4cf2176b-d5ee-4409-a30c-3c9ca1639f61", "9e5ae7d7-2482-40be-9e05-4cd55c782060", "ebb647bf-45f2-4246-868d-4ed9d2a30449"] as shellCompaniesIds
+MATCH p=(s1:ShellCompany)-[*..1]-()-[*..1]-(s2:ShellCompany)
+WHERE s1.obj_id IN shellCompaniesIds AND s2.obj_id IN shellCompaniesIds AND
+s1.obj_id <> s2.obj_id
+RETURN p
+
+MATCH path=(p:Person)-[*]->()-[:OWNS]->(a:Asset)
+WHERE p.obj_id = "580fc4ad-8b88-4f4b-9ef1-19ea974eafa3" AND toFloat(a.value_in_gbp) > 10000
+RETURN path
+
+MATCH path=(p:Person)-[*..6]-(t:Trust)
+WHERE p.obj_id = "580fc4ad-8b88-4f4b-9ef1-19ea974eafa3" AND t.obj_id = "5bf01e7b-7741-4906-9548-e2a90607f4c5"
+RETURN path

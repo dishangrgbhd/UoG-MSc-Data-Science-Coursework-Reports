@@ -1,0 +1,88 @@
+name,description,query,id,parentId,isFolder
+1,,"CALL apoc.periodic.iterate(
+ ""
+ MATCH (t:Transaction)
+ WHERE t.method_id IN ['deposit', 'withdraw']
+ RETURN t
+ ORDER BY t.timestamp ASC
+ "",
+ ""
+ WITH t
+ OPTIONAL MATCH (prevTx:Transaction)
+ WHERE prevTx.timestamp < t.timestamp
+ AND prevTx.method_id IN ['deposit', 'withdraw']
+ WITH t, prevTx
+ ORDER BY prevTx.timestamp DESC
+ LIMIT 1
+ WITH
+ t,
+ prevTx,
+ CASE
+ WHEN prevTx IS NULL AND t.method_id = 'deposit' THEN 1
+ WHEN prevTx IS NULL AND t.method_id = 'withdraw' THEN 0
+ WHEN t.method_id = 'deposit' THEN coalesce(prevTx.open_count, 0) 
++ 1
+ WHEN t.method_id = 'withdraw' THEN
+ CASE
+ WHEN coalesce(prevTx.open_count, 0) > 0 THEN 
+prevTx.open_count - 1
+ ELSE 0
+ END
+ END AS newOpenCount
+ SET
+ t.open_count = newOpenCount,
+ t.anonymity_set =
+ CASE
+ WHEN t.method_id = 'deposit' THEN 
+coalesce(prevTx.anonymity_set, 0) + 1
+ WHEN t.method_id = 'withdraw' THEN
+ CASE
+ WHEN newOpenCount = 0 THEN 0
+ ELSE coalesce(prevTx.anonymity_set, 0)
+ END
+ END
+ "",
+ {batchSize: 1, parallel: false}
+)
+",0,,false
+2,,MATCH (t:Transaction) RETURN *,1,,false
+3,,"MATCH (w:Transaction)-[:TO]->(c:Contract)
+WHERE w.method_id = 'withdraw'
+OPTIONAL MATCH (prevReset:Transaction)-[:TO]->(c)
+WHERE prevReset.timestamp < w.timestamp
+AND prevReset.anonymity_set = 0 
+WITH w, c, prevReset
+ORDER BY prevReset.timestamp 
+DESC WITH w, c, collect(prevReset)[0] AS lastReset
+MATCH (d:Transaction)-[:TO]->(c)
+WHERE d.method_id = 'deposit'
+AND d.timestamp > coalesce(lastReset.timestamp, 0)
+AND d.timestamp <= w.timestamp 
+MERGE (w)-[:POSSIBLE_DEPOSIT]->(d);",2,,false
+4,,"MATCH (w:Transaction)
+WHERE w.method_id = 'withdraw'
+OPTIONAL MATCH (w)-[:POSSIBLE_DEPOSIT]->(d:Transaction)
+WITH w, count(d) AS cnt
+SET w.possible_deposit_count = cnt;",3,,false
+5,,"MATCH (w:Transaction)
+WHERE w.method_id = 'withdraw'
+AND w.possible_deposit_count = 1
+MATCH (w)-[r:POSSIBLE_DEPOSIT]->(d:Transaction)
+RETURN w, r, d;",4,,false
+6,,"MATCH (t:Transaction )-[:TO]-(:Contract)
+RETURN t.method_id AS method, t.gas_price AS gasPrice, COUNT(*) AS entriesCount
+ORDER BY method, gasPrice
+",5,,false
+7,,"MATCH (c:Contract)<-[r :TO]-(t:Transaction {gas_price:21})- 
+[u:FROM|RELAYED_TO]-(w:Wallet)
+RETURN *",6,,false
+8,,"MATCH p=(w_wallet:Wallet {address: ""0xf51417ca8e71ccd46a44b7ee1bbe908c271612b8""})-[*..5]-(d_wallet:Wallet)
+WHERE d_wallet.address IN [""0x2061953674933af73c3f64487b0a36f252b80d4c"",""0x0ad2d8ca9566a96407e05a4e99cb090d81a2571f""]
+AND NONE(node IN nodes(p) WHERE node:Contract)
+LIMIT 1
+RETURN p",7,,false
+9,,"MATCH (t:Transaction)
+WHERE t.method_id IN ['deposit', 'withdraw']
+RETURN t
+ORDER BY t.timestamp DESC
+LIMIT 1;",8,,false
